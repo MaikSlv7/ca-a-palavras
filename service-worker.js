@@ -1,4 +1,3 @@
-
 self.addEventListener('install', function(event) {
   event.waitUntil(
     caches.open('caca-palavras-cache').then(function(cache) {
@@ -10,6 +9,7 @@ self.addEventListener('install', function(event) {
     })
   );
 });
+
 self.addEventListener('fetch', function(event) {
   event.respondWith(
     caches.match(event.request).then(function(response) {

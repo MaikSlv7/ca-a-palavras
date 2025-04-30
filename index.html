@@ -7,33 +7,135 @@
   <title>Caça-Palavras Retrô</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#00ffff" />
+  <style>
+    body {
+      background: #000;
+      color: #0ff;
+      font-family: monospace;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+    #tabuleiro {
+      display: grid;
+      grid-template-columns: repeat(8, 40px);
+      gap: 4px;
+      justify-content: center;
+    }
+    .letra {
+      width: 40px;
+      height: 40px;
+      background: #222;
+      color: #0ff;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .found { background: #0a0; color: #fff; }
+    .selected { background: #0ff; color: #000; }
+  </style>
 </head>
 <body>
   <h1>🎮 Caça-Palavras</h1>
-  <div id="inicio">
-    <label>Nome: <input id="nomeJogador" /></label><br><br>
-    <button id="btnIniciar">Iniciar Jogo</button>
-  </div>
-  <div id="jogo" style="display:none;">
-    <h2 id="faseAtual"></h2>
-    <div id="cronometro"></div>
-    <div id="lista-palavras"></div>
-    <div id="tabuleiro"></div>
-  </div>
-  <div id="tela-final" style="display:none;">
-    <h2>🏁 Fim de Jogo</h2>
-    <p id="pontuacaoFinal"></p>
-    <button onclick="iniciarJogo()">🔁 Jogar Novamente</button>
-  </div>
+  <button onclick="iniciarJogo()">Iniciar</button>
+  <div id="tabuleiro"></div>
+  <p id="lista"></p>
+
   <script>
-    // Versão resumida de lógica de jogo omitida aqui por brevidade
-    document.getElementById("btnIniciar").addEventListener("click", () => alert("Jogo iniciado!"));
-  </script>
-  <script>
+    let palavras = ["GATO", "LUA", "SOL"];
+    let encontradas = [];
+    let grade = [];
+    let selecao = [], selecionando = false;
+
+    function iniciarJogo() {
+      encontradas = [];
+      grade = Array.from({ length: 8 }, () => Array(8).fill(""));
+      palavras.forEach(p => inserirPalavra(p));
+      preencherGrade();
+      desenhar();
+      document.getElementById("lista").innerHTML = palavras.join(" - ");
+    }
+
+    function inserirPalavra(palavra) {
+      let ok = false;
+      while (!ok) {
+        let x = Math.floor(Math.random() * 8);
+        let y = Math.floor(Math.random() * (8 - palavra.length));
+        ok = true;
+        for (let i = 0; i < palavra.length; i++) {
+          if (grade[x][y + i] && grade[x][y + i] !== palavra[i]) ok = false;
+        }
+        if (ok) {
+          for (let i = 0; i < palavra.length; i++) grade[x][y + i] = palavra[i];
+        }
+      }
+    }
+
+    function preencherGrade() {
+      const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          if (!grade[i][j]) grade[i][j] = letras[Math.floor(Math.random() * letras.length)];
+        }
+      }
+    }
+
+    function desenhar() {
+      const tab = document.getElementById("tabuleiro");
+      tab.innerHTML = "";
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          const cel = document.createElement("div");
+          cel.className = "letra";
+          cel.textContent = grade[i][j];
+          cel.dataset.x = i;
+          cel.dataset.y = j;
+          cel.addEventListener("pointerdown", () => iniciarSelecao(cel));
+          cel.addEventListener("pointerenter", () => expandirSelecao(cel));
+          cel.addEventListener("pointerup", finalizarSelecao);
+          cel.addEventListener("touchstart", () => iniciarSelecao(cel));
+          cel.addEventListener("touchmove", e => {
+            const touch = e.touches[0];
+            const alvo = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (alvo && alvo.classList.contains("letra")) expandirSelecao(alvo);
+          });
+          cel.addEventListener("touchend", finalizarSelecao);
+          tab.appendChild(cel);
+        }
+      }
+    }
+
+    function iniciarSelecao(cel) {
+      selecao = [cel];
+      selecionando = true;
+      cel.classList.add("selected");
+    }
+
+    function expandirSelecao(cel) {
+      if (!selecionando || selecao.includes(cel)) return;
+      selecao.push(cel);
+      cel.classList.add("selected");
+    }
+
+    function finalizarSelecao() {
+      if (!selecionando) return;
+      selecionando = false;
+      const palavra = selecao.map(c => c.textContent).join('');
+      const invertida = selecao.map(c => c.textContent).reverse().join('');
+      if (palavras.includes(palavra) || palavras.includes(invertida)) {
+        selecao.forEach(c => c.classList.add("found"));
+        encontradas.push(palavra);
+      }
+      selecao.forEach(c => c.classList.remove("selected"));
+      selecao = [];
+    }
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('service-worker.js')
-        .then(() => console.log('✔ Service Worker registrado!'))
-        .catch(err => console.warn('Erro ao registrar o Service Worker:', err));
+        .then(() => console.log('✔ SW registrado'))
+        .catch(err => console.warn('Erro SW:', err));
     }
   </script>
 </body>
