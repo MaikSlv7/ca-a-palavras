@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Caça-Palavras Retrô</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#00ffff" />
+</head>
+<body>
+  <h1>🎮 Caça-Palavras</h1>
+  <div id="inicio">
+    <label>Nome: <input id="nomeJogador" /></label><br><br>
+    <button id="btnIniciar">Iniciar Jogo</button>
+  </div>
+  <div id="jogo" style="display:none;">
+    <h2 id="faseAtual"></h2>
+    <div id="cronometro"></div>
+    <div id="lista-palavras"></div>
+    <div id="tabuleiro"></div>
+  </div>
+  <div id="tela-final" style="display:none;">
+    <h2>🏁 Fim de Jogo</h2>
+    <p id="pontuacaoFinal"></p>
+    <button onclick="iniciarJogo()">🔁 Jogar Novamente</button>
+  </div>
+  <script>
+    // Versão resumida de lógica de jogo omitida aqui por brevidade
+    document.getElementById("btnIniciar").addEventListener("click", () => alert("Jogo iniciado!"));
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(() => console.log('✔ Service Worker registrado!'))
+        .catch(err => console.warn('Erro ao registrar o Service Worker:', err));
+    }
+  </script>
+</body>
+</html>
