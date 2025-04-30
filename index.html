@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Caça-Palavras Retrô</title>
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#00ffff" />
   <style>
     body {
@@ -14,48 +14,96 @@
       font-family: monospace;
       text-align: center;
       margin: 0;
-      padding: 20px;
+      padding: 10px;
     }
     #tabuleiro {
       display: grid;
       grid-template-columns: repeat(8, 40px);
-      gap: 4px;
+      gap: 3px;
       justify-content: center;
+      margin-bottom: 10px;
     }
     .letra {
       width: 40px;
       height: 40px;
-      background: #222;
+      background: #111;
       color: #0ff;
-      font-weight: bold;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-weight: bold;
       cursor: pointer;
     }
-    .found { background: #0a0; color: #fff; }
     .selected { background: #0ff; color: #000; }
+    .found { background: #0a0; color: #fff; }
+    #lista { margin: 10px 0; }
+    #fimJogo { display: none; }
+    .topo {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      align-items: center;
+      font-size: 1rem;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
-  <h1>🎮 Caça-Palavras</h1>
-  <button onclick="iniciarJogo()">Iniciar</button>
+  <h1 id="titulo">🎮 Caça-Palavras</h1>
+  <label id="campoNome">Nome: <input id="nomeJogador" /></label><br><br>
+  <button id="botaoIniciar" onclick="iniciarJogo()">Iniciar Jogo</button>
+
+  <div class="topo">
+    <div id="faseInfo"></div>
+    <div id="cronometro" style="display:none;">⏱️ 03:00</div>
+  </div>
+
+  <div id="lista"></div>
   <div id="tabuleiro"></div>
-  <p id="lista"></p>
+
+  <div id="fimJogo">
+    <h2>🏁 Fim de Jogo</h2>
+    <p id="pontuacaoFinal"></p>
+    <button onclick="iniciarJogo()">🔁 Jogar Novamente</button>
+  </div>
 
   <script>
-    let palavras = ["GATO", "LUA", "SOL"];
-    let encontradas = [];
-    let grade = [];
-    let selecao = [], selecionando = false;
+    let fase = 1, palavras = [], grade = [], pontos = 0, tempo = 180, timer;
+    let encontradas = [], selecao = [], selecionando = false;
 
     function iniciarJogo() {
-      encontradas = [];
+      fase = 1;
+      pontos = 0;
+      document.getElementById("fimJogo").style.display = "none";
+      document.getElementById("titulo").style.display = "none";
+      document.getElementById("botaoIniciar").style.display = "none";
+      document.getElementById("campoNome").style.display = "none";
+      document.getElementById("cronometro").style.display = "block";
+      iniciarFase();
+    }
+
+    function iniciarFase() {
+      document.getElementById("tabuleiro").style.display = "grid";
+      document.getElementById("faseInfo").textContent = `🔥 Fase ${fase}`;
+      palavras = gerarPalavras(fase);
       grade = Array.from({ length: 8 }, () => Array(8).fill(""));
+      encontradas = []; selecao = [];
       palavras.forEach(p => inserirPalavra(p));
       preencherGrade();
       desenhar();
-      document.getElementById("lista").innerHTML = palavras.join(" - ");
+      atualizarLista();
+      iniciarCronometro(fase);
+    }
+
+    function gerarPalavras(fase) {
+      const banco = ["GATO", "LUA", "SOL", "CÃO", "NAVE", "PÃO", "VIDA", "CÉU", "FLOR", "ÁGUA"];
+      let total = fase === 1 ? 5 : fase === 2 ? 7 : 8;
+      const sorteadas = [];
+      while (sorteadas.length < total) {
+        const p = banco[Math.floor(Math.random() * banco.length)];
+        if (!sorteadas.includes(p)) sorteadas.push(p);
+      }
+      return sorteadas;
     }
 
     function inserirPalavra(palavra) {
@@ -126,16 +174,55 @@
       const invertida = selecao.map(c => c.textContent).reverse().join('');
       if (palavras.includes(palavra) || palavras.includes(invertida)) {
         selecao.forEach(c => c.classList.add("found"));
-        encontradas.push(palavra);
+        if (!encontradas.includes(palavra)) {
+          encontradas.push(palavra);
+          pontos += 10;
+        }
       }
       selecao.forEach(c => c.classList.remove("selected"));
       selecao = [];
+      atualizarLista();
+      if (encontradas.length === palavras.length) {
+        if (fase < 3) {
+          fase++; iniciarFase();
+        } else {
+          encerrarJogo();
+        }
+      }
+    }
+
+    function atualizarLista() {
+      document.getElementById("lista").innerHTML = "Palavras: " + palavras.map(p => 
+        encontradas.includes(p) ? `<s>${p}</s>` : p).join(" - ");
+    }
+
+    function iniciarCronometro(fase) {
+      clearInterval(timer);
+      tempo = fase === 1 ? 180 : fase === 2 ? 120 : 90;
+      atualizarTempo();
+      timer = setInterval(() => {
+        tempo--;
+        atualizarTempo();
+        if (tempo <= 0) encerrarJogo();
+      }, 1000);
+    }
+
+    function atualizarTempo() {
+      const m = String(Math.floor(tempo / 60)).padStart(2, '0');
+      const s = String(tempo % 60).padStart(2, '0');
+      document.getElementById("cronometro").textContent = `⏱️ ${m}:${s}`;
+    }
+
+    function encerrarJogo() {
+      clearInterval(timer);
+      document.getElementById("tabuleiro").style.display = "none";
+      document.getElementById("fimJogo").style.display = "block";
+      const nome = document.getElementById("nomeJogador").value || "Jogador";
+      document.getElementById("pontuacaoFinal").textContent = `${nome}, você fez ${pontos} pontos!`;
     }
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js')
-        .then(() => console.log('✔ SW registrado'))
-        .catch(err => console.warn('Erro SW:', err));
+      navigator.serviceWorker.register('service-worker.js');
     }
   </script>
 </body>
