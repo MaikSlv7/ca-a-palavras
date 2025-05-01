@@ -162,6 +162,16 @@
           cel.addEventListener("pointerdown", () => iniciarSelecao(cel));
           cel.addEventListener("pointerenter", () => expandirSelecao(cel));
           cel.addEventListener("pointerup", finalizarSelecao);
+
+cel.addEventListener("touchstart", () => iniciarSelecao(cel));
+cel.addEventListener("touchmove", e => {
+  const touch = e.touches[0];
+  const alvo = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (alvo && alvo.classList.contains("letra")) expandirSelecao(alvo);
+  e.preventDefault();
+});
+cel.addEventListener("touchend", finalizarSelecao);
+
           tab.appendChild(cel);
         }
       }
