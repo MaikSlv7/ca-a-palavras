@@ -162,7 +162,6 @@
           cel.addEventListener("pointerdown", () => iniciarSelecao(cel));
           cel.addEventListener("pointerenter", () => expandirSelecao(cel));
           cel.addEventListener("pointerup", finalizarSelecao);
-
 cel.addEventListener("touchstart", () => iniciarSelecao(cel));
 cel.addEventListener("touchmove", e => {
   const touch = e.touches[0];
@@ -171,7 +170,6 @@ cel.addEventListener("touchmove", e => {
   e.preventDefault();
 });
 cel.addEventListener("touchend", finalizarSelecao);
-
           tab.appendChild(cel);
         }
       }
