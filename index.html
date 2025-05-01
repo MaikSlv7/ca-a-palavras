@@ -3,24 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Caça-Palavras Retrô</title>
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#00ffff" />
+  <title>Caça-Palavras Avançado</title>
   <style>
     body {
+      margin: 0;
+      padding: 0;
       background: #000;
       color: #0ff;
       font-family: monospace;
       text-align: center;
-      margin: 0;
-      padding: 10px;
+    }
+    #container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      max-width: 600px;
     }
     #tabuleiro {
       display: grid;
       grid-template-columns: repeat(8, 40px);
       gap: 3px;
       justify-content: center;
-      margin-bottom: 10px;
+      margin: 10px auto;
     }
     .letra {
       width: 40px;
@@ -35,68 +41,60 @@
     }
     .selected { background: #0ff; color: #000; }
     .found { background: #0a0; color: #fff; }
-    #lista { margin: 10px 0; }
-    #fimJogo { display: none; }
-    .topo {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      align-items: center;
-      font-size: 1rem;
-      margin-bottom: 10px;
+    #fim {
+      display: none;
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
-  <h1 id="titulo">🎮 Caça-Palavras</h1>
-  <label id="campoNome">Nome: <input id="nomeJogador" /></label><br><br>
-  <button id="botaoIniciar" onclick="iniciarJogo()">Iniciar Jogo</button>
-
-  <div class="topo">
-    <div id="faseInfo"></div>
-    <div id="cronometro" style="display:none;">⏱️ 03:00</div>
-  </div>
-
-  <div id="lista"></div>
-  <div id="tabuleiro"></div>
-
-  <div id="fimJogo">
-    <h2>🏁 Fim de Jogo</h2>
-    <p id="pontuacaoFinal"></p>
-    <button onclick="iniciarJogo()">🔁 Jogar Novamente</button>
+  <div id="container">
+    <h1 id="titulo">🎮 Caça-Palavras</h1>
+    <label id="entradaNome">Nome: <input id="nomeJogador"></label><br><br>
+    <button id="btnIniciar">Iniciar Jogo</button>
+    <div id="fase"></div>
+    <div id="cronometro" style="margin: 10px;"></div>
+    <div id="lista"></div>
+    <div id="tabuleiro"></div>
+    <div id="fim">
+      <h2>🏁 Fim de Jogo</h2>
+      <p id="pontuacaoFinal"></p>
+      <button onclick="iniciarJogo()">🔁 Jogar Novamente</button>
+    </div>
   </div>
 
   <script>
-    let fase = 1, palavras = [], grade = [], pontos = 0, tempo = 180, timer;
-    let encontradas = [], selecao = [], selecionando = false;
+    let fase = 1, tempo = 180, pontos = 0, intervalo;
+    let palavras = [], grade = [], encontradas = [], selecao = [], selecionando = false;
+
+    document.getElementById("btnIniciar").addEventListener("click", iniciarJogo);
 
     function iniciarJogo() {
+      document.getElementById("titulo").style.display = "none";
+      document.getElementById("btnIniciar").style.display = "none";
+      document.getElementById("entradaNome").style.display = "none";
+      document.getElementById("fim").style.display = "none";
+      document.getElementById("tabuleiro").style.display = "grid";
       fase = 1;
       pontos = 0;
-      document.getElementById("fimJogo").style.display = "none";
-      document.getElementById("titulo").style.display = "none";
-      document.getElementById("botaoIniciar").style.display = "none";
-      document.getElementById("campoNome").style.display = "none";
-      document.getElementById("cronometro").style.display = "block";
       iniciarFase();
     }
 
     function iniciarFase() {
-      document.getElementById("tabuleiro").style.display = "grid";
-      document.getElementById("faseInfo").textContent = `🔥 Fase ${fase}`;
       palavras = gerarPalavras(fase);
       grade = Array.from({ length: 8 }, () => Array(8).fill(""));
       encontradas = []; selecao = [];
-      palavras.forEach(p => inserirPalavra(p));
+      document.getElementById("fase").textContent = "🔥 Fase " + fase;
+      palavras.forEach(p => inserirPalavra(p, fase));
       preencherGrade();
-      desenhar();
+      desenharTabuleiro();
       atualizarLista();
-      iniciarCronometro(fase);
+      iniciarCronometro();
     }
 
-    function gerarPalavras(fase) {
-      const banco = ["GATO", "LUA", "SOL", "CÃO", "NAVE", "PÃO", "VIDA", "CÉU", "FLOR", "ÁGUA", "BOLA", "FÉ", "FORÇA", "LUZ"];
-      let total = fase === 1 ? 5 : fase === 2 ? 7 : fase === 3 ? 8 : fase === 4 ? 9 : fase === 5 ? 10 : 12;
+    function gerarPalavras(faseAtual) {
+      const banco = ["GATO", "LUA", "SOL", "NAVE", "VIDA", "LUZ", "FORÇA", "ÁGUA", "PÃO", "FÉ"];
+      const total = faseAtual < 4 ? 6 : 8;
       const sorteadas = [];
       while (sorteadas.length < total) {
         const p = banco[Math.floor(Math.random() * banco.length)];
@@ -105,17 +103,39 @@
       return sorteadas;
     }
 
-    function inserirPalavra(palavra) {
-      let ok = false;
-      while (!ok) {
-        let x = Math.floor(Math.random() * 8);
-        let y = Math.floor(Math.random() * (8 - palavra.length));
-        ok = true;
-        for (let i = 0; i < palavra.length; i++) {
-          if (grade[x][y + i] && grade[x][y + i] !== palavra[i]) ok = false;
+    function inserirPalavra(palavra, faseAtual) {
+      const direcoes = [
+        { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
+        { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+        { dx: 1, dy: 1 }, { dx: -1, dy: -1 },
+        { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
+      ];
+      const usarInvertida = faseAtual >= 4 && Math.random() < 0.5;
+      const palavraUsada = usarInvertida ? palavra.split('').reverse().join('') : palavra;
+      let colocado = false;
+
+      while (!colocado) {
+        const dir = faseAtual >= 4
+          ? direcoes[Math.floor(Math.random() * direcoes.length)]
+          : direcoes[Math.floor(Math.random() * 3)];
+        const x = Math.floor(Math.random() * 8);
+        const y = Math.floor(Math.random() * 8);
+        let pode = true;
+        for (let i = 0; i < palavraUsada.length; i++) {
+          const nx = x + dir.dx * i;
+          const ny = y + dir.dy * i;
+          if (nx < 0 || ny < 0 || nx >= 8 || ny >= 8 || (grade[nx][ny] && grade[nx][ny] !== palavraUsada[i])) {
+            pode = false;
+            break;
+          }
         }
-        if (ok) {
-          for (let i = 0; i < palavra.length; i++) grade[x][y + i] = palavra[i];
+        if (pode) {
+          for (let i = 0; i < palavraUsada.length; i++) {
+            const nx = x + dir.dx * i;
+            const ny = y + dir.dy * i;
+            grade[nx][ny] = palavraUsada[i];
+          }
+          colocado = true;
         }
       }
     }
@@ -129,7 +149,7 @@
       }
     }
 
-    function desenhar() {
+    function desenharTabuleiro() {
       const tab = document.getElementById("tabuleiro");
       tab.innerHTML = "";
       for (let i = 0; i < 8; i++) {
@@ -142,21 +162,14 @@
           cel.addEventListener("pointerdown", () => iniciarSelecao(cel));
           cel.addEventListener("pointerenter", () => expandirSelecao(cel));
           cel.addEventListener("pointerup", finalizarSelecao);
-          cel.addEventListener("touchstart", () => iniciarSelecao(cel));
-          cel.addEventListener("touchmove", e => {
-            const touch = e.touches[0];
-            const alvo = document.elementFromPoint(touch.clientX, touch.clientY);
-            if (alvo && alvo.classList.contains("letra")) expandirSelecao(alvo);
-          });
-          cel.addEventListener("touchend", finalizarSelecao);
           tab.appendChild(cel);
         }
       }
     }
 
     function iniciarSelecao(cel) {
-      selecao = [cel];
       selecionando = true;
+      selecao = [cel];
       cel.classList.add("selected");
     }
 
@@ -173,36 +186,31 @@
       const invertida = selecao.map(c => c.textContent).reverse().join('');
       if (palavras.includes(palavra) || palavras.includes(invertida)) {
         selecao.forEach(c => c.classList.add("found"));
-        if (!encontradas.includes(palavra)) {
-          encontradas.push(palavra);
-          pontos += 10;
-        }
+        pontos += 10;
+        encontradas.push(palavra);
       }
       selecao.forEach(c => c.classList.remove("selected"));
       selecao = [];
       atualizarLista();
       if (encontradas.length === palavras.length) {
-        if (fase < 6) {
-          fase++; iniciarFase();
-        } else {
-          encerrarJogo();
-        }
+        fase++;
+        if (fase <= 6) iniciarFase();
+        else fimDeJogo();
       }
     }
 
     function atualizarLista() {
-      document.getElementById("lista").innerHTML = "Palavras: " + palavras.map(p => 
-        encontradas.includes(p) ? `<s>${p}</s>` : p).join(" - ");
+      document.getElementById("lista").innerHTML = "Palavras: " + palavras.map(p => encontradas.includes(p) ? `<s>${p}</s>` : p).join(" - ");
     }
 
-    function iniciarCronometro(fase) {
-      clearInterval(timer);
-      tempo = fase === 1 ? 180 : fase === 2 ? 120 : fase === 3 ? 90 : fase === 4 ? 80 : fase === 5 ? 60 : 45;
+    function iniciarCronometro() {
+      clearInterval(intervalo);
+      tempo = 90;
       atualizarTempo();
-      timer = setInterval(() => {
+      intervalo = setInterval(() => {
         tempo--;
         atualizarTempo();
-        if (tempo <= 0) encerrarJogo();
+        if (tempo <= 0) fimDeJogo();
       }, 1000);
     }
 
@@ -212,17 +220,17 @@
       document.getElementById("cronometro").textContent = `⏱️ ${m}:${s}`;
     }
 
-    function encerrarJogo() {
-      clearInterval(timer);
+    function fimDeJogo() {
+      clearInterval(intervalo);
       document.getElementById("tabuleiro").style.display = "none";
-      document.getElementById("fimJogo").style.display = "block";
+      document.getElementById("fim").style.display = "block";
       const nome = document.getElementById("nomeJogador").value || "Jogador";
       document.getElementById("pontuacaoFinal").textContent = `${nome}, você fez ${pontos} pontos!`;
     }
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js');
-    }
+    document.addEventListener("touchmove", function(e) {
+      if (e.target.classList.contains("letra")) e.preventDefault();
+    }, { passive: false });
   </script>
 </body>
 </html>
