@@ -1,139 +1,264 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Caça-Palavras</title>
-  <link rel="manifest" href="/ca-a-palavras/manifest.json">
+  <title>Caça-Palavras Retrô</title>
+
+  <!-- Fonte retrô estilo arcade -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCbVeacY4qlq-52ffBy1Phh0MRn-hLhMto",
+      authDomain: "casa-palavras.firebaseapp.com",
+      databaseURL: "https://casa-palavras-default-rtdb.firebaseio.com",
+      projectId: "casa-palavras",
+      storageBucket: "casa-palavras.appspot.com",
+      messagingSenderId: "757777567199",
+      appId: "1:757777567199:web:2932fca94f25887185486a",
+      measurementId: "G-D2B5B6TDY1"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    function salvarPontuacao(nome, pontos) {
+      db.ref("ranking").push({ nome, pontos, timestamp: Date.now() });
+    }
+    function carregarRanking() {
+      db.ref("ranking").orderByChild("pontos").limitToLast(5).once("value", snap => {
+        const lista = [];
+        snap.forEach(child => lista.unshift(child.val()));
+        const html = lista.map(r => `<li>${r.nome}: ${r.pontos} pts</li>`).join("");
+        document.getElementById("ranking").innerHTML = "<h3>🏆 Ranking</h3><ul>" + html + "</ul>";
+      });
+    }
+  </script>
   <style>
-    body { background: #000; color: #0ff; font-family: monospace; text-align: center; margin: 0; }
-    #tabuleiro { display: grid; grid-template-columns: repeat(8, 40px); gap: 2px; justify-content: center; margin-top: 10px; }
-    .letra { width: 40px; height: 40px; background: #111; color: #0ff; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; }
-    .selected { background: #0ff; color: #000; }
-    .found { background: #0a0; color: #fff; }
-  </style>
+    body {
+      background: #000;
+      color: #0ff;
+      font-family: monospace;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1#titulo {
+      font-family: 'Press Start 2P', monospace;
+      color: #0ff;
+      text-shadow: 0 0 10px #0ff, 0 0 20px #0ff, 0 0 30px #0ff;
+      animation: brilho 2s infinite alternate;
+      font-size: 1.5em;
+      margin-top: 20px;
+    }
+
+    @keyframes brilho {
+      0%   { text-shadow: 0 0 5px #0ff; }
+      100% { text-shadow: 0 0 20px #0ff, 0 0 30px #0ff; }
+    }
+
+    #tabuleiro {
+      display: grid;
+      grid-template-columns: repeat(8, 40px);
+      gap: 2px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .letra {
+      width: 40px;
+      height: 40px;
+      background: #111;
+      color: #0ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .selected {
+      background: #0ff;
+      color: #000;
+      transform: scale(1.1);
+    }
+    .found {
+      background: #0a0;
+      color: #fff;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      background: #000;
+      border: 2px solid #0ff;
+      color: #0ff;
+      font-size: 1em;
+      font-family: monospace;
+    }
+    button:hover {
+      background: #0ff;
+      color: #000;
+      cursor: pointer;
+    }
+  
+#fase {
+  font-size: 1.2em;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+
+.neon {
+  text-shadow: 0 0 10px #0ff, 0 0 20px #0ff, 0 0 30px #0ff;
+  animation: brilho 2s infinite alternate;
+}
+
+</style>
 </head>
 <body>
-  <h1>Caça-Palavras</h1>
-  <label>Nome: <input id="nomeJogador"></label><br><br>
-  <button id="btnIniciar">Iniciar Jogo</button>
-  <div id="fase"></div>
+  <h1 id="titulo">CAÇA-PALAVRAS</h1>
+  <div id="inicio">
+    <label>Nome: <input id="nomeJogador" /></label><br>
+    <button onclick="iniciarJogo()">Iniciar Jogo</button>
+  </div>
+  <div id="fase" class="neon"></div>
   <div id="cronometro"></div>
   <div id="lista"></div>
   <div id="tabuleiro"></div>
   <div id="fim" style="display:none;">
     <h2>Fim de Jogo</h2>
     <p id="pontuacaoFinal"></p>
+    <div id="ranking"></div>
     <button onclick="iniciarJogo()">Jogar Novamente</button>
   </div>
   <script>
-    let fase = 1, tempo = 180, pontos = 0, intervalo;
+    let fase = 1, tempo = 90, pontos = 0, intervalo;
     let palavras = [], grade = [], encontradas = [], selecao = [], selecionando = false;
-    document.getElementById("btnIniciar").addEventListener("click", iniciarJogo);
+    let jogoEncerrado = false;
+
     function iniciarJogo() {
+      clearInterval(intervalo);
+      document.getElementById("titulo").style.display = "none";
+      document.getElementById("inicio").style.display = "none";
       document.getElementById("fim").style.display = "none";
-      fase = 1; pontos = 0; iniciarFase();
+      document.getElementById("tabuleiro").style.display = "grid";
+      jogoEncerrado = false;
+      fase = 1; pontos = 0;
+      iniciarFase();
+      scrollTo(0, 0);
     }
+
     function iniciarFase() {
-      palavras = ["LUZ", "VIDA", "FORÇA", "ÁGUA", "GATO", "PÃO"];
+      palavras = ["LUZ","VIDA","FORCA","AGUA","GATO","PAO"];
       grade = Array.from({ length: 8 }, () => Array(8).fill(""));
       encontradas = []; selecao = [];
       document.getElementById("fase").textContent = "Fase " + fase;
-      palavras.forEach(p => inserirPalavra(p, fase));
+      palavras.forEach(p => inserirPalavra(p));
       preencherGrade(); desenharTabuleiro(); atualizarLista(); iniciarCronometro();
     }
-    function inserirPalavra(palavra, faseAtual) {
-      const direcoes = [{dx:0,dy:1},{dx:1,dy:0},{dx:1,dy:1},{dx:-1,dy:1},{dx:0,dy:-1},{dx:-1,dy:0},{dx:-1,dy:-1},{dx:1,dy:-1}];
-      const usarInvertida = faseAtual >= 4 && Math.random() < 0.5;
-      const palavraUsada = usarInvertida ? palavra.split('').reverse().join('') : palavra;
-      let colocado = false;
-      while (!colocado) {
-        const dir = faseAtual >= 4 ? direcoes[Math.floor(Math.random()*8)] : direcoes[Math.floor(Math.random()*3)];
+
+    function inserirPalavra(p) {
+      const d = [{dx:0,dy:1},{dx:1,dy:0},{dx:1,dy:1}];
+      let ok = false;
+      while (!ok) {
+        const dir = d[Math.floor(Math.random()*d.length)];
         const x = Math.floor(Math.random()*8), y = Math.floor(Math.random()*8);
         let pode = true;
-        for (let i=0; i<palavraUsada.length; i++) {
+        for (let i=0;i<p.length;i++) {
           const nx = x + dir.dx*i, ny = y + dir.dy*i;
-          if (nx<0||ny<0||nx>=8||ny>=8||(grade[nx][ny]&&grade[nx][ny]!==palavraUsada[i])){pode=false;break;}
+          if (nx<0||ny<0||nx>=8||ny>=8||(grade[nx][ny] && grade[nx][ny] !== p[i])) { pode = false; break; }
         }
         if (pode) {
-          for (let i=0; i<palavraUsada.length; i++) {
+          for (let i=0;i<p.length;i++) {
             const nx = x + dir.dx*i, ny = y + dir.dy*i;
-            grade[nx][ny] = palavraUsada[i];
+            grade[nx][ny] = p[i];
           }
-          colocado = true;
+          ok = true;
         }
       }
     }
+
     function preencherGrade() {
       const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-      for (let i=0;i<8;i++) for (let j=0;j<8;j++) if (!grade[i][j]) grade[i][j] = letras[Math.floor(Math.random()*letras.length)];
+      for (let i=0;i<8;i++) for (let j=0;j<8;j++)
+        if (!grade[i][j]) grade[i][j] = letras[Math.floor(Math.random()*letras.length)];
     }
+
     function desenharTabuleiro() {
       const tab = document.getElementById("tabuleiro"); tab.innerHTML = "";
       for (let i=0;i<8;i++) for (let j=0;j<8;j++) {
         const cel = document.createElement("div");
         cel.className = "letra"; cel.textContent = grade[i][j];
         cel.dataset.x = i; cel.dataset.y = j;
-        cel.addEventListener("pointerdown", () => iniciarSelecao(cel));
-        cel.addEventListener("pointerenter", () => expandirSelecao(cel));
-        cel.addEventListener("pointerup", finalizarSelecao);
-        cel.addEventListener("touchstart", () => iniciarSelecao(cel));
-        cel.addEventListener("touchmove", e => {
-          const touch = e.touches[0];
-          const alvo = document.elementFromPoint(touch.clientX, touch.clientY);
-          if (alvo && alvo.classList.contains("letra")) expandirSelecao(alvo);
-          e.preventDefault();
-        });
-        cel.addEventListener("touchend", finalizarSelecao);
+        cel.addEventListener("pointerdown",()=>iniciarSelecao(cel));
+        cel.addEventListener("pointerenter",()=>expandirSelecao(cel));
+        cel.addEventListener("pointerup",finalizarSelecao);
         tab.appendChild(cel);
       }
     }
-    function iniciarSelecao(cel) {
-      selecionando = true; selecao = [cel]; cel.classList.add("selected");
-    }
+
+    function iniciarSelecao(cel) { selecionando = true; selecao = [cel]; cel.classList.add("selected"); }
     function expandirSelecao(cel) {
       if (!selecionando || selecao.includes(cel)) return;
       selecao.push(cel); cel.classList.add("selected");
     }
     function finalizarSelecao() {
-      if (!selecionando) return; selecionando = false;
-      const palavra = selecao.map(c => c.textContent).join(''),
-            invertida = selecao.map(c => c.textContent).reverse().join('');
+      if (!selecionando) return;
+      selecionando = false;
+      const palavra = selecao.map(c => c.textContent).join('');
+      const invertida = selecao.map(c => c.textContent).reverse().join('');
       if (palavras.includes(palavra) || palavras.includes(invertida)) {
         selecao.forEach(c => c.classList.add("found"));
-        pontos += 10; encontradas.push(palavra);
+        if (!encontradas.includes(palavra)) {
+          encontradas.push(palavra);
+          pontos += 10;
+        }
       }
-      selecao.forEach(c => c.classList.remove("selected")); selecao = [];
+      selecao.forEach(c => c.classList.remove("selected"));
+      selecao = [];
       atualizarLista();
-      if (encontradas.length === palavras.length) fase++; iniciarFase();
+      if (encontradas.length === palavras.length) {
+        fase++; iniciarFase();
+      }
     }
+
     function atualizarLista() {
-      document.getElementById("lista").innerHTML = palavras.map(p => encontradas.includes(p)?`<s>${p}</s>`:p).join(" - ");
+      document.getElementById("lista").innerHTML = palavras.map(p =>
+        encontradas.includes(p) ? `<s>${p}</s>` : p
+      ).join(" - ");
     }
+
     function iniciarCronometro() {
       clearInterval(intervalo); tempo = 90;
       atualizarTempo();
       intervalo = setInterval(() => {
-        tempo--; atualizarTempo();
+        tempo--;
+        atualizarTempo();
         if (tempo <= 0) fimDeJogo();
       }, 1000);
     }
+
     function atualizarTempo() {
-      const m = String(Math.floor(tempo/60)).padStart(2, '0'),
-            s = String(tempo%60).padStart(2, '0');
+      const m = String(Math.floor(tempo / 60)).padStart(2, '0');
+      const s = String(tempo % 60).padStart(2, '0');
       document.getElementById("cronometro").textContent = `⏱️ ${m}:${s}`;
     }
+
     function fimDeJogo() {
+      if (jogoEncerrado) return;
+      jogoEncerrado = true;
       clearInterval(intervalo);
       document.getElementById("fim").style.display = "block";
+      document.getElementById("tabuleiro").style.display = "none";
       const nome = document.getElementById("nomeJogador").value || "Jogador";
       document.getElementById("pontuacaoFinal").textContent = `${nome}, você fez ${pontos} pontos!`;
-    }
-  </script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/ca-a-palavras/service-worker.js');
+      salvarPontuacao(nome, pontos);
+      carregarRanking();
     }
   </script>
 </body>
