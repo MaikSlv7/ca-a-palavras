@@ -2,9 +2,9 @@ self.addEventListener("install", function(event) {
   event.waitUntil(
     caches.open("caca-palavras-cache").then(function(cache) {
       return cache.addAll([
-        "/ca-a-palavras/",
-        "/ca-a-palavras/index.html",
-        "/ca-a-palavras/manifest.json"
+        "./",
+        "./index.html",
+        "./manifest.json"
       ]);
     })
   );

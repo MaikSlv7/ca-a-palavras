@@ -1,7 +1,7 @@
 {
   "name": "Caça-Palavras Retrô",
   "short_name": "CaçaPalavras",
-  "start_url": "/ca-a-palavras/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#00ffff",
