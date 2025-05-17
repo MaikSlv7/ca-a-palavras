@@ -1,1 +1,206 @@
-<!DOCTYPE html><html><head><link rel='manifest' href='manifest.json'><script>if('serviceWorker'in navigator){navigator.serviceWorker.register('service-worker.js')}</script></head><body><h1>CAÇA-PALAVRAS</h1></body></html>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Caça-Palavras Retrô</title>
+  <link rel="manifest" href="manifest.json" />
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js");
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background: #000;
+      color: #0ff;
+      font-family: monospace;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      font-family: 'Press Start 2P', monospace;
+      color: #0ff;
+      text-shadow: 0 0 10px #0ff, 0 0 20px #0ff, 0 0 30px #0ff;
+      animation: brilho 2s infinite alternate;
+    }
+    #fase {
+      font-size: 1.2em;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin: 20px 0 10px;
+      text-shadow: 0 0 10px #0ff;
+      animation: brilho 2s infinite alternate;
+    }
+    #tabuleiro {
+      display: grid;
+      grid-template-columns: repeat(8, 40px);
+      gap: 2px;
+      justify-content: center;
+    }
+    .letra {
+      width: 40px;
+      height: 40px;
+      background: #111;
+      color: #0ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      touch-action: none;
+      user-select: none;
+    }
+    .selected { background: #0ff; color: #000; }
+    .found { background: #0a0; color: #fff; }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      background: #000;
+      border: 2px solid #0ff;
+      color: #0ff;
+      font-family: monospace;
+    }
+    @keyframes brilho {
+      0% { text-shadow: 0 0 5px #0ff; }
+      100% { text-shadow: 0 0 20px #0ff, 0 0 30px #0ff; }
+    }
+  </style>
+</head>
+<body>
+  <h1>CAÇA-PALAVRAS</h1>
+  <div id="inicio">
+    <label>Nome: <input id="nomeJogador"></label><br>
+    <button onclick="iniciarJogo()">Iniciar Jogo</button>
+  </div>
+  <div id="fase"></div>
+  <div id="cronometro"></div>
+  <div id="lista"></div>
+  <div id="tabuleiro"></div>
+  <div id="fim" style="display:none;">
+    <h2>Fim de Jogo</h2>
+    <p id="pontuacaoFinal"></p>
+    <button onclick="iniciarJogo()">Jogar Novamente</button>
+  </div>
+  <script>
+    let fase = 1, tempo = 90, pontos = 0, intervalo;
+    let palavras = [], grade = [], encontradas = [], selecao = [], selecionando = false;
+
+    function iniciarJogo() {
+      document.getElementById("inicio").style.display = "none";
+      document.getElementById("fim").style.display = "none";
+      document.getElementById("tabuleiro").style.display = "grid";
+      fase = 1; pontos = 0;
+      iniciarFase();
+    }
+
+    function iniciarFase() {
+      palavras = ["LUZ", "GATO", "PAZ", "VIDA"];
+      grade = Array.from({ length: 8 }, () => Array(8).fill(""));
+      encontradas = []; selecao = [];
+      document.getElementById("fase").textContent = "FASE " + fase;
+      palavras.forEach(p => inserirPalavra(p));
+      preencher(); desenhar(); atualizarLista(); iniciarCronometro();
+    }
+
+    function inserirPalavra(p) {
+      const dir = [{dx:0,dy:1},{dx:1,dy:0},{dx:1,dy:1}];
+      let ok = false;
+      while (!ok) {
+        const d = dir[Math.floor(Math.random()*dir.length)];
+        const x = Math.floor(Math.random()*8), y = Math.floor(Math.random()*8);
+        if (x + d.dx * p.length > 8 || y + d.dy * p.length > 8) continue;
+        let pode = true;
+        for (let i = 0; i < p.length; i++) {
+          const nx = x + i * d.dx, ny = y + i * d.dy;
+          if (grade[nx][ny] && grade[nx][ny] !== p[i]) { pode = false; break; }
+        }
+        if (pode) {
+          for (let i = 0; i < p.length; i++) {
+            grade[x + i * d.dx][y + i * d.dy] = p[i];
+          }
+          ok = true;
+        }
+      }
+    }
+
+    function preencher() {
+      const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      for (let i=0;i<8;i++) for (let j=0;j<8;j++)
+        if (!grade[i][j]) grade[i][j] = letras[Math.floor(Math.random()*letras.length)];
+    }
+
+    function desenhar() {
+      const t = document.getElementById("tabuleiro"); t.innerHTML = "";
+      for (let i=0;i<8;i++) for (let j=0;j<8;j++) {
+        const c = document.createElement("div");
+        c.className = "letra"; c.textContent = grade[i][j];
+        c.dataset.x = i; c.dataset.y = j;
+        c.addEventListener("pointerdown",()=>iniciarSelecao(c));
+        c.addEventListener("pointerenter",()=>expandirSelecao(c));
+        c.addEventListener("pointerup",finalizarSelecao);
+        c.addEventListener("touchstart",()=>iniciarSelecao(c));
+        c.addEventListener("touchmove",e=>{
+          const t = e.touches[0];
+          const alvo = document.elementFromPoint(t.clientX, t.clientY);
+          if (alvo && alvo.classList.contains("letra")) expandirSelecao(alvo);
+        });
+        c.addEventListener("touchend",finalizarSelecao);
+        t.appendChild(c);
+      }
+    }
+
+    function iniciarSelecao(cel) {
+      selecionando = true; selecao = [cel]; cel.classList.add("selected");
+    }
+
+    function expandirSelecao(cel) {
+      if (!selecionando || selecao.includes(cel)) return;
+      selecao.push(cel); cel.classList.add("selected");
+    }
+
+    function finalizarSelecao() {
+      if (!selecionando) return;
+      selecionando = false;
+      const palavra = selecao.map(c=>c.textContent).join('');
+      const invertida = selecao.map(c=>c.textContent).reverse().join('');
+      if (palavras.includes(palavra) || palavras.includes(invertida)) {
+        selecao.forEach(c=>c.classList.add("found"));
+        pontos += 10;
+      }
+      selecao.forEach(c=>c.classList.remove("selected"));
+      selecao = [];
+      atualizarLista();
+    }
+
+    function atualizarLista() {
+      document.getElementById("lista").innerHTML = palavras.map(p => `<span>${p}</span>`).join(" - ");
+    }
+
+    function iniciarCronometro() {
+      tempo = 90;
+      atualizarTempo();
+      clearInterval(intervalo);
+      intervalo = setInterval(() => {
+        tempo--;
+        atualizarTempo();
+        if (tempo <= 0) fim();
+      }, 1000);
+    }
+
+    function atualizarTempo() {
+      const m = String(Math.floor(tempo / 60)).padStart(2, '0');
+      const s = String(tempo % 60).padStart(2, '0');
+      document.getElementById("cronometro").textContent = `⏱️ ${m}:${s}`;
+    }
+
+    function fim() {
+      clearInterval(intervalo);
+      document.getElementById("fim").style.display = "block";
+      document.getElementById("tabuleiro").style.display = "none";
+      document.getElementById("pontuacaoFinal").textContent = `Você fez ${pontos} pontos!`;
+    }
+  </script>
+</body>
+</html>
