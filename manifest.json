@@ -1,6 +1,6 @@
 
 {
-  "name": "Caça-Palavras Infinito",
+  "name": "Caça-Palavras com Ranking",
   "short_name": "CaçaPalavras",
   "start_url": ".",
   "display": "standalone",
