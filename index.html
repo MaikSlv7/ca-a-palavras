@@ -6,10 +6,11 @@
   <title>Caça-Palavras Retrô</title>
   <link rel="manifest" href="manifest.json" />
   <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js');
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js");
     }
   </script>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     body {
       background: #000;
@@ -19,21 +20,29 @@
       margin: 0;
       padding: 20px;
     }
-    h1 {
+    h1#titulo {
+      font-family: 'Press Start 2P', monospace;
       color: #0ff;
-      text-shadow: 0 0 10px #0ff;
+      text-shadow: 0 0 10px #0ff, 0 0 20px #0ff, 0 0 30px #0ff;
       animation: brilho 2s infinite alternate;
     }
+    @keyframes brilho {
+      0% { text-shadow: 0 0 5px #0ff; }
+      100% { text-shadow: 0 0 20px #0ff, 0 0 30px #0ff; }
+    }
     #fase {
-      margin-top: 10px;
       font-weight: bold;
+      margin: 10px 0;
+    }
+    #cronometro {
+      font-size: 1em;
+      margin-bottom: 10px;
     }
     #tabuleiro {
       display: grid;
       grid-template-columns: repeat(8, 40px);
       gap: 2px;
       justify-content: center;
-      margin-top: 10px;
     }
     .letra {
       width: 40px;
@@ -44,8 +53,8 @@
       align-items: center;
       justify-content: center;
       font-weight: bold;
-      touch-action: none;
       user-select: none;
+      touch-action: none;
     }
     .selected { background: #0ff; color: #000; }
     .found { background: #0a0; color: #fff; }
@@ -65,14 +74,22 @@
     <button onclick="iniciarJogo()">Iniciar Jogo</button>
   </div>
   <div id="fase"></div>
+  <div id="cronometro"></div>
   <div id="lista"></div>
   <div id="tabuleiro"></div>
+  <div id="fim" style="display:none;">
+    <h2>Fim de Jogo</h2>
+    <p id="pontuacaoFinal"></p>
+    <button onclick="iniciarJogo()">Jogar Novamente</button>
+  </div>
   <script>
-    let fase = 1, palavras = [], grade = [], encontradas = [], selecao = [], selecionando = false;
+    let fase = 1, tempo = 90, intervalo;
+    let palavras = [], grade = [], encontradas = [], selecao = [], selecionando = false;
 
     function iniciarJogo() {
       document.getElementById("titulo").style.display = "none";
       document.getElementById("inicio").style.display = "none";
+      document.getElementById("fim").style.display = "none";
       fase = 1;
       iniciarFase();
     }
@@ -82,39 +99,39 @@
       grade = Array.from({ length: 8 }, () => Array(8).fill(""));
       encontradas = []; selecao = [];
       document.getElementById("fase").textContent = "FASE " + fase;
-      palavras.forEach(p => inserirPalavra(p));
-      preencher(); desenhar(); atualizarLista();
+      preencherPalavras(); desenhar(); atualizarLista();
+      iniciarCronometro();
     }
 
-    function inserirPalavra(p) {
+    function preencherPalavras() {
       const d = [{dx:0,dy:1},{dx:1,dy:0},{dx:1,dy:1}];
-      let ok = false;
-      while (!ok) {
-        const dir = d[Math.floor(Math.random()*d.length)];
-        const x = Math.floor(Math.random()*8), y = Math.floor(Math.random()*8);
-        if (x + dir.dx * p.length > 8 || y + dir.dy * p.length > 8) continue;
-        let pode = true;
-        for (let i = 0; i < p.length; i++) {
-          const nx = x + i * dir.dx, ny = y + i * dir.dy;
-          if (grade[nx][ny] && grade[nx][ny] !== p[i]) { pode = false; break; }
-        }
-        if (pode) {
+      palavras.forEach(p => {
+        let ok = false;
+        while (!ok) {
+          const dir = d[Math.floor(Math.random()*d.length)];
+          const x = Math.floor(Math.random()*8), y = Math.floor(Math.random()*8);
+          if (x + dir.dx * p.length > 8 || y + dir.dy * p.length > 8) continue;
+          let pode = true;
           for (let i = 0; i < p.length; i++) {
-            grade[x + i * dir.dx][y + i * dir.dy] = p[i];
+            const nx = x + i * dir.dx, ny = y + i * dir.dy;
+            if (grade[nx][ny] && grade[nx][ny] !== p[i]) { pode = false; break; }
           }
-          ok = true;
+          if (pode) {
+            for (let i = 0; i < p.length; i++) {
+              grade[x + i * dir.dx][y + i * dir.dy] = p[i];
+            }
+            ok = true;
+          }
         }
-      }
-    }
-
-    function preencher() {
+      });
       const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
       for (let i=0;i<8;i++) for (let j=0;j<8;j++)
         if (!grade[i][j]) grade[i][j] = letras[Math.floor(Math.random()*letras.length)];
     }
 
     function desenhar() {
-      const t = document.getElementById("tabuleiro"); t.innerHTML = "";
+      const tab = document.getElementById("tabuleiro");
+      tab.innerHTML = "";
       for (let i=0;i<8;i++) for (let j=0;j<8;j++) {
         const c = document.createElement("div");
         c.className = "letra"; c.textContent = grade[i][j];
@@ -129,7 +146,7 @@
           if (alvo && alvo.classList.contains("letra")) expandirSelecao(alvo);
         });
         c.addEventListener("touchend",finalizarSelecao);
-        t.appendChild(c);
+        tab.appendChild(c);
       }
     }
 
@@ -156,6 +173,7 @@
       atualizarLista();
       if (encontradas.length === palavras.length) {
         fase++;
+        clearInterval(intervalo);
         setTimeout(iniciarFase, 1000);
       }
     }
@@ -164,6 +182,30 @@
       document.getElementById("lista").innerHTML = palavras.map(p =>
         encontradas.includes(p) ? `<s>${p}</s>` : p
       ).join(" - ");
+    }
+
+    function iniciarCronometro() {
+      tempo = 90;
+      atualizarTempo();
+      clearInterval(intervalo);
+      intervalo = setInterval(() => {
+        tempo--;
+        atualizarTempo();
+        if (tempo <= 0) fimDeJogo();
+      }, 1000);
+    }
+
+    function atualizarTempo() {
+      const m = String(Math.floor(tempo / 60)).padStart(2, '0');
+      const s = String(tempo % 60).padStart(2, '0');
+      document.getElementById("cronometro").textContent = `⏱️ ${m}:${s}`;
+    }
+
+    function fimDeJogo() {
+      clearInterval(intervalo);
+      document.getElementById("fim").style.display = "block";
+      document.getElementById("tabuleiro").style.display = "none";
+      document.getElementById("pontuacaoFinal").textContent = `Você fez ${encontradas.length * 10} pontos!`;
     }
   </script>
 </body>
